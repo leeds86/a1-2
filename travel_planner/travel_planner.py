@@ -74,7 +74,7 @@ def get_recommendations(date_str: str) -> dict:
     for attempt in range(2):
         try:
             res = model.generate_content(prompt)
-            json_text = re.search(r'\{.*\}', res.text, re.DOTALL).group()
+            json_text = re.search(r'\{.*\}', res.text, re.DOTALL).group() #LLM JSON 파싱 방어
             return json.loads(json_text)
         except Exception as e:
             if attempt == 0:
@@ -111,8 +111,14 @@ def search_restaurants(city: str, kakao_key: str, size: int = 5) -> list:
         return []
 
 
-def generate_report(date_str: str, rec: dict, restaurants_by_city: dict) -> str:
+# 💡 매개변수에 errors: list = None 을 추가
+def generate_report(date_str: str, rec: dict, restaurants_by_city: dict, errors: list = None) -> str:
     """LLM으로 지역별 최종 리포트(Markdown) 생성"""
+
+    # 에러 바구니가 비어있으면 안전하게 빈 리스트로 초기화
+    if errors is None:
+        errors = []
+
     model = genai.GenerativeModel("gemini-3.5-flash-lite")
     
     # 💡 지역별로 맛집 데이터를 예쁘게 포장합니다.
@@ -126,11 +132,14 @@ def generate_report(date_str: str, rec: dict, restaurants_by_city: dict) -> str:
             rest_list.append("- 검색된 맛집 없음")
             
     rest_text = "\n".join(rest_list)
+
+    # 💡 누적된 에러를 텍스트로 변환하는 로직 추가
+    error_text = "\n".join([f"- {err}" for err in errors]) if errors else "- 없음"
     
     prompt = f"""당신은 훌륭한 여행 가이드입니다.
 아래 정보로 여행 리포트를 Markdown으로 작성해줘.
 Markdown 서식만 사용하여 제목, 소제목, 본문을 작성해줘.
-본문에는 각 지역별 추천 이유와 날씨, 행사/축제, 맛집 리스트, 1일 일정 제안, 그리고 오류 요약(errors)을 반드시 포함해줘.
+본문에는 각 지역별 추천 이유와 날씨, 행사/축제, 맛집 리스트, 1일 일정 제안, 그리고 오류 요약(errors) 결과{error_text}를 반드시 포함해줘.
 
 날짜: {date_str}
 추천정보: {json.dumps(rec, ensure_ascii=False)}
@@ -148,6 +157,9 @@ Markdown 서식만 사용하여 제목, 소제목, 본문을 작성해줘.
 def main():
     kakao_key = init_environment()
     date_str = parse_arguments()
+
+    # 프로그램 시작 시 에러를 담을 빈 바구니 준비
+    errors = []
     
     print(f"✅ 여행 날짜: {date_str}")
     
@@ -157,7 +169,7 @@ def main():
     # 저장될 JSON 데이터 파일 경로
     data_file = results_dir / f"data_{date_str}.json"
     
-    # 💡 [과제2] 결과 캐싱 적용
+    # 💡 결과 캐싱 적용
     # 만약 기존에 저장된 데이터가 있다면 API를 부르지 않고 바로 꺼내 씁니다.
     if data_file.exists():
         print("💾 기존에 저장된 데이터를 발견했습니다! (API 호출 생략)")
@@ -170,6 +182,20 @@ def main():
     else:
         print("🤖 [1/3] 복수 추천 도시를 분석 중입니다(LLM)...")
         recommendation = get_recommendations(date_str)
+
+        # LLM 응답 직후 필수 키 검증!
+        required_keys = ["recommended_cities", "weather", "events", "reason"]
+        for key in required_keys:
+            if key not in recommendation:
+                errors.append(f"1차 LLM 응답 에러: 필수 키 '{key}' 누락됨")
+                
+                # 프로그램이 뻗지 않도록 기본값 채워주기
+                if key == "recommended_cities":
+                    recommendation[key] = []  # 도시는 리스트 형태이므로 빈 리스트로 방어
+                else:
+                    recommendation[key] = "데이터 없음"
+
+        # 이후 기존 로직 정상 실행
         cities = [item.get("city") for item in recommendation.get("recommended_cities", []) if item.get("city")]
         
         if not cities:
@@ -178,7 +204,7 @@ def main():
             
         print(f"  - 추천된 도시: {', '.join(cities)}")
         
-        # 💡 [과제1] 복수 지역 맛집 검색 (Loop)
+        # 💡 복수 지역 맛집 검색 (Loop)
         print("🗺️  [2/3] 각 도시별 맛집을 검색 중입니다(지도 API)...")
         restaurants_by_city = {}
         for city in cities:
@@ -194,7 +220,7 @@ def main():
 
     # 3. 리포트는 매번 새롭게 생성합니다 (또는 문맥에 맞게 다듬기 위함)
     print("📝 [3/3] 최종 리포트 생성 중(LLM)...")
-    report = generate_report(date_str, recommendation, restaurants_by_city)
+    report = generate_report(date_str, recommendation, restaurants_by_city, errors)
     
     with open(results_dir / f"report_{date_str}.md", "w", encoding="utf-8") as f:
         f.write(report)
