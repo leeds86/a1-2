@@ -14,16 +14,24 @@ Gemini AI(LLM)와 카카오맵 API를 활용하여, 입력한 날짜에 가기 �
 
 최신 파이썬 환경에서는 시스템 충돌 방지를 위해 '가상 환경(나만의 작업 공간)'에서 실행하는 것을 권장합니다.
 
-### 1. 패키지 설치 (최초 1회만)
-터미널(명령 프롬프트)을 열고 아래 명령어를 입력하세요.
+### 1. 프로젝트 다운로드 (Clone)
+먼저 깃허브에서 프로젝트 코드를 다운로드하고, 작업할 폴더로 이동합니다.
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/본인깃허브계정/a1-2.git
+cd a1-2/travel_planner
 ```
 
-### 2. 프로그램 실행
-가상 환경이 켜진 상태(`(myenv)`)에서 아래 명령어로 프로그램을 실행합니다.
+### 2. 패키지 설치 (최초 1회만)
+터미널(명령 프롬프트)을 열고 아래 명령어를 입력하여 필요한 도구들을 설치합니다.
+(최신 파이썬 환경의 보안 경고를 우회하여 강제 설치하는 명령어입니다.)
 ```bash
-python travel_planner/travel_planner.py --date 2026-10-10
+pip install -r requirements.txt --break-system-packages
+```
+
+### 3. 프로그램 실행
+아래 명령어로 프로그램을 실행합니다.
+```bash
+python travel_planner.py --date 2026-10-10
 ```
 *(날짜는 `YYYY-MM-DD` 형식으로 자유롭게 변경 가능합니다.)*
 

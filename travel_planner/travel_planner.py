@@ -101,7 +101,7 @@ def search_restaurants(city: str, kakao_key: str, size: int = 5) -> list:
             "name": d.get("place_name", ""),
             "address": d.get("address_name", ""),
             "category": d.get("category_name", ""),
-            "url": d.get("place_url", "")
+            "url": d.get("place_url", ""),
             "x": d.get("x", ""),  # 경도(Longitude) 추가됨
             "y": d.get("y", "")   # 위도(Latitude) 추가됨
         } for d in docs]
